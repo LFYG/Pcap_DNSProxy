@@ -197,7 +197,7 @@ ConfigurationTable::ConfigurationTable(
 //Check itself.
 	if (this == &Reference)
 		return;
-	
+
 //Class constructor
 	memset(this, 0, sizeof(CONFIGURATION_TABLE));
 	try {
@@ -333,6 +333,7 @@ ConfigurationTable::ConfigurationTable(
 	PrintLogLevel = Reference.PrintLogLevel;
 	LogMaxSize = Reference.LogMaxSize;
 	//[Listen] block
+	IsProcessUnique = Reference.IsProcessUnique;
 #if defined(ENABLE_PCAP)
 	IsPcapCapture = Reference.IsPcapCapture;
 	if (Reference.PcapDevicesBlacklist != nullptr)
@@ -381,10 +382,9 @@ ConfigurationTable::ConfigurationTable(
 	//[Local DNS] block
 	LocalProtocol_Network = Reference.LocalProtocol_Network;
 	LocalProtocol_Transport = Reference.LocalProtocol_Transport;
-	IsLocalForce = Reference.IsLocalForce;
-	IsLocalMain = Reference.IsLocalMain;
 	IsLocalHosts = Reference.IsLocalHosts;
 	IsLocalRouting = Reference.IsLocalRouting;
+	IsLocalForce = Reference.IsLocalForce;
 
 	//[Addresses] block
 	if (Reference.ListenAddress_IPv6 != nullptr)
@@ -512,6 +512,9 @@ ConfigurationTable::ConfigurationTable(
 		ICMP_PaddingData = nullptr;
 	}
 	ICMP_PaddingLength = Reference.ICMP_PaddingLength;
+	DomainTest_Protocol = Reference.DomainTest_Protocol;
+	DomainTest_ID = Reference.DomainTest_ID;
+	DomainTest_Speed = Reference.DomainTest_Speed;
 	if (Reference.DomainTest_Data != nullptr)
 	{
 		memcpy_s(DomainTest_Data, DOMAIN_MAXSIZE, Reference.DomainTest_Data, DOMAIN_MAXSIZE);
@@ -520,8 +523,6 @@ ConfigurationTable::ConfigurationTable(
 		delete[] DomainTest_Data;
 		DomainTest_Data = nullptr;
 	}
-	DomainTest_ID = Reference.DomainTest_ID;
-	DomainTest_Speed = Reference.DomainTest_Speed;
 #endif
 	if (Reference.Local_FQDN_String != nullptr)
 	{
@@ -678,6 +679,7 @@ void ConfigurationTableSetting(
 	ConfigurationParameter->LogMaxSize = LOG_READING_MAXSIZE;
 
 	//[Listen] block
+	ConfigurationParameter->IsProcessUnique = true;
 #if defined(ENABLE_PCAP)
 	ConfigurationParameter->PcapReadingTimeout = DEFAULT_PCAP_CAPTURE_TIMEOUT;
 #endif
@@ -718,6 +720,7 @@ void ConfigurationTableSetting(
 #endif
 #if defined(ENABLE_PCAP)
 	ConfigurationParameter->ICMP_Speed = DEFAULT_ICMP_TEST_TIME * SECOND_TO_MILLISECOND;
+	ConfigurationParameter->DomainTest_Protocol = REQUEST_MODE_TEST::UDP;
 	ConfigurationParameter->DomainTest_Speed = DEFAULT_DOMAIN_TEST_INTERVAL_TIME * SECOND_TO_MILLISECOND;
 #endif
 	ConfigurationParameter->AlternateTimes = DEFAULT_ALTERNATE_TIMES;
@@ -913,7 +916,6 @@ void ConfigurationTable::MonitorItemToUsing(
 //[Local DNS] block
 	ConfigurationParameter->LocalProtocol_Network = LocalProtocol_Network;
 	ConfigurationParameter->LocalProtocol_Transport = LocalProtocol_Transport;
-	ConfigurationParameter->IsLocalForce = IsLocalForce;
 
 //[Values] block
 	ConfigurationParameter->ThreadPoolResetTime = ThreadPoolResetTime;
@@ -934,6 +936,7 @@ void ConfigurationTable::MonitorItemToUsing(
 	ConfigurationParameter->ReceiveWaiting = ReceiveWaiting;
 #if defined(ENABLE_PCAP)
 	ConfigurationParameter->ICMP_Speed = ICMP_Speed;
+	ConfigurationParameter->DomainTest_Protocol = DomainTest_Protocol;
 	ConfigurationParameter->DomainTest_Speed = DomainTest_Speed;
 #endif
 	ConfigurationParameter->MultipleRequestTimes = MultipleRequestTimes;
@@ -1032,7 +1035,6 @@ void ConfigurationTable::MonitorItemReset(
 //[Local DNS] block
 	LocalProtocol_Network = REQUEST_MODE_NETWORK::BOTH;
 	LocalProtocol_Transport = REQUEST_MODE_TRANSPORT::UDP;
-	IsLocalForce = false;
 
 //[Values] block
 	ThreadPoolResetTime = DEFAULT_THREAD_POOL_RESET_TIME;
@@ -1064,6 +1066,7 @@ void ConfigurationTable::MonitorItemReset(
 	ReceiveWaiting = 0;
 #if defined(ENABLE_PCAP)
 	ICMP_Speed = DEFAULT_ICMP_TEST_TIME * SECOND_TO_MILLISECOND;
+	DomainTest_Protocol = REQUEST_MODE_TEST::UDP;
 	DomainTest_Speed = DEFAULT_DOMAIN_TEST_INTERVAL_TIME * SECOND_TO_MILLISECOND;
 #endif
 	MultipleRequestTimes = 0;
@@ -1406,7 +1409,7 @@ GlobalStatus::~GlobalStatus(
 	void)
 {
 //Close all sockets.
-	for (const auto &SocketIter:*LocalListeningSocket)
+	for (auto &SocketIter:*LocalListeningSocket)
 		SocketSetting(SocketIter, SOCKET_SETTING_TYPE::CLOSE, false, nullptr);
 
 #if defined(PLATFORM_WIN)
@@ -1551,13 +1554,55 @@ SocketSelectingOnceTable::SocketSelectingOnceTable(
 	return;
 }
 
-//InputPacketTable class constructor
 #if defined(ENABLE_PCAP)
+//CaptureDeviceTable class constructor
+CaptureDeviceTable::CaptureDeviceTable(
+	void)
+{
+	memset(this, 0, sizeof(CAPTURE_DEVICE_TABLE));
+	try {
+		DeviceName = new std::string();
+	}
+	catch (std::bad_alloc)
+	{
+		delete DeviceName;
+		DeviceName = nullptr;
+
+	//Exit process.
+		exit(EXIT_FAILURE);
+//		return;
+	}
+
+	return;
+}
+
+//CaptureDeviceTable class destructor
+CaptureDeviceTable::~CaptureDeviceTable(
+	void)
+{
+	delete DeviceName;
+	DeviceName = nullptr;
+	if (DeviceHandle != nullptr)
+	{
+		pcap_close(DeviceHandle);
+		DeviceHandle = nullptr;
+	}
+	if (!CheckEmptyBuffer(&BPF_Code, sizeof(BPF_Code)))
+	{
+		pcap_freecode(&BPF_Code);
+		memset(&BPF_Code, 0, sizeof(BPF_Code));
+	}
+
+	return;
+}
+
+//InputPacketTable class constructor
 OutputPacketTable::OutputPacketTable(
 	void)
 {
 //Initialization
 	memset(&SocketData_Input, 0, sizeof(SocketData_Input));
+	SocketData_Input.Socket = INVALID_SOCKET;
 	Protocol_Network = 0;
 	Protocol_Transport = 0;
 	ClearPortTime = 0;
@@ -2181,7 +2226,7 @@ void DNSCurveConfigurationTableSetting(
 	sodium_memzero(DNSCurveConfigurationParameter->DNSCurve_Target_Server_Alternate_IPv6.SendMagicNumber, DNSCURVE_MAGIC_QUERY_LEN);
 	sodium_memzero(DNSCurveConfigurationParameter->DNSCurve_Target_Server_Main_IPv4.SendMagicNumber, DNSCURVE_MAGIC_QUERY_LEN);
 	sodium_memzero(DNSCurveConfigurationParameter->DNSCurve_Target_Server_Alternate_IPv4.SendMagicNumber, DNSCURVE_MAGIC_QUERY_LEN);
-	
+
 //Default settings
 	//[DNSCurve] block
 	DNSCurveConfigurationParameter->DNSCurveProtocol_Network = REQUEST_MODE_NETWORK::BOTH;
@@ -2523,7 +2568,7 @@ OpenSSLContextTable::OpenSSLContextTable(
 	SessionData = nullptr;
 	Protocol_Network = 0;
 	Protocol_Transport = 0;
-	Socket = 0;
+	Socket = INVALID_SOCKET;
 
 	return;
 }

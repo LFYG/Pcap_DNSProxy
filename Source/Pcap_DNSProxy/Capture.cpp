@@ -348,7 +348,7 @@ bool CaptureModule(
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 	else if (DriveInterface->name == nullptr || DriveInterface->addresses == nullptr || DriveInterface->flags == PCAP_IF_LOOPBACK)
 #endif
-	{		
+	{
 		if (IsCaptureList && DriveInterface->next != nullptr)
 		{
 			std::thread CaptureThread(std::bind(CaptureModule, DriveInterface->next, true));
@@ -358,13 +358,15 @@ bool CaptureModule(
 		return true;
 	}
 
+//Initialization
+	CAPTURE_DEVICE_TABLE DeviceTable;
+
 //Pcap device blacklist check
-	std::string CaptureDevice;
 	if (IsCaptureList)
 	{
 	//Capture name and description initialization
-		CaptureDevice = DriveInterface->name;
-		CaseConvert(CaptureDevice, false);
+		*DeviceTable.DeviceName = DriveInterface->name;
+		CaseConvert(*DeviceTable.DeviceName, false);
 		std::string CaptureDescription;
 		if (DriveInterface->description != nullptr && strnlen_s(DriveInterface->description, PCAP_CAPTURE_STRING_MAXNUM) > 0)
 		{
@@ -375,7 +377,7 @@ bool CaptureModule(
 	//Check process.
 		for (const auto &CaptureIter:*Parameter.PcapDevicesBlacklist)
 		{
-			if (CaptureDevice.find(CaptureIter) != std::string::npos || 
+			if (DeviceTable.DeviceName->find(CaptureIter) != std::string::npos || 
 				(!CaptureDescription.empty() && CaptureDescription.find(CaptureIter) != std::string::npos))
 			{
 				if (DriveInterface->next != nullptr)
@@ -392,16 +394,16 @@ bool CaptureModule(
 //Initialization(Part 1)
 	std::unique_ptr<uint8_t[]> Buffer(new uint8_t[Parameter.LargeBufferSize + PADDING_RESERVED_BYTES]());
 	memset(Buffer.get(), 0, Parameter.LargeBufferSize + PADDING_RESERVED_BYTES);
-	CaptureDevice = DriveInterface->name;
-	CaptureDevice.shrink_to_fit();
+	*DeviceTable.DeviceName = DriveInterface->name;
+	DeviceTable.DeviceName->shrink_to_fit();
 
 //Open device
 #if defined(PLATFORM_WIN)
-	const auto DeviceHandle = pcap_open(DriveInterface->name, static_cast<int>(Parameter.LargeBufferSize), 0, static_cast<int>(Parameter.PcapReadingTimeout), nullptr, reinterpret_cast<char *>(Buffer.get()));
+	DeviceTable.DeviceHandle = pcap_open(DriveInterface->name, static_cast<int>(Parameter.LargeBufferSize), 0, static_cast<int>(Parameter.PcapReadingTimeout), nullptr, reinterpret_cast<char *>(Buffer.get()));
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	const auto DeviceHandle = pcap_open_live(DriveInterface->name, static_cast<int>(Parameter.LargeBufferSize), 0, static_cast<int>(Parameter.PcapReadingTimeout), reinterpret_cast<char *>(Buffer.get()));
+	DeviceTable.DeviceHandle = pcap_open_live(DriveInterface->name, static_cast<int>(Parameter.LargeBufferSize), 0, static_cast<int>(Parameter.PcapReadingTimeout), reinterpret_cast<char *>(Buffer.get()));
 #endif
-	if (DeviceHandle == nullptr)
+	if (DeviceTable.DeviceHandle == nullptr)
 	{
 		std::wstring Message;
 		if (MBS_To_WCS_String(Buffer.get(), PCAP_ERRBUF_SIZE, Message))
@@ -417,48 +419,44 @@ bool CaptureModule(
 	}
 
 //Check device type.
-	auto DeviceType = pcap_datalink(DeviceHandle);
-	if (DeviceType == DLT_EN10MB || //Ethernet II(Standard)
-		DeviceType == DLT_PPP_ETHER || //PPPoE
-		DeviceType == DLT_EN3MB || //Ethernet II(Experiment)
-		DeviceType == DLT_APPLE_IP_OVER_IEEE1394) //Apple IEEE 1394
+	DeviceTable.DeviceType = pcap_datalink(DeviceTable.DeviceHandle);
+	if (DeviceTable.DeviceType == DLT_EN10MB || //Ethernet II(Standard)
+		DeviceTable.DeviceType == DLT_PPP_ETHER || //PPP over Ethernet/PPPoE
+		DeviceTable.DeviceType == DLT_EN3MB || //Ethernet II(Experiment)
+		DeviceTable.DeviceType == DLT_APPLE_IP_OVER_IEEE1394) //Apple IEEE 1394
 	{
-		if (DeviceType == DLT_PPP_ETHER || DeviceType == DLT_EN3MB)
-			DeviceType = DLT_EN10MB;
+		if (DeviceTable.DeviceType == DLT_PPP_ETHER || DeviceTable.DeviceType == DLT_EN3MB)
+			DeviceTable.DeviceType = DLT_EN10MB;
 	}
 	else {
-		pcap_close(DeviceHandle);
 		return false;
 	}
 
 //Compile the string into a filter program.
-	bpf_program BPF_Code;
-	memset(&BPF_Code, 0, sizeof(BPF_Code));
 #if defined(PLATFORM_WIN)
-	if (pcap_compile(DeviceHandle, &BPF_Code, PcapFilterRules.c_str(), PCAP_COMPILE_OPTIMIZE, 0) == PCAP_ERROR)
+	if (pcap_compile(DeviceTable.DeviceHandle, &DeviceTable.BPF_Code, PcapFilterRules.c_str(), PCAP_COMPILE_OPTIMIZE, 0) == PCAP_ERROR)
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	if (pcap_compile(DeviceHandle, &BPF_Code, PcapFilterRules.c_str(), PCAP_COMPILE_OPTIMIZE, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR)
+	if (pcap_compile(DeviceTable.DeviceHandle, &DeviceTable.BPF_Code, PcapFilterRules.c_str(), PCAP_COMPILE_OPTIMIZE, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR)
 #endif
 	{
 		std::wstring Message;
-		if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(pcap_geterr(DeviceHandle)), PCAP_ERRBUF_SIZE, Message))
+		if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(pcap_geterr(DeviceTable.DeviceHandle)), PCAP_ERRBUF_SIZE, Message))
 		{
 			Message.append(L"\n");
 			PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PCAP, Message.c_str(), 0, nullptr, 0);
-		}	
+		}
 		else {
 			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
 		}
 
-		pcap_close(DeviceHandle);
 		return false;
 	}
 
 //Specify a filter program.
-	if (pcap_setfilter(DeviceHandle, &BPF_Code) == PCAP_ERROR)
+	if (pcap_setfilter(DeviceTable.DeviceHandle, &DeviceTable.BPF_Code) == PCAP_ERROR)
 	{
 		std::wstring Message;
-		if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(pcap_geterr(DeviceHandle)), PCAP_ERRBUF_SIZE, Message))
+		if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(pcap_geterr(DeviceTable.DeviceHandle)), PCAP_ERRBUF_SIZE, Message))
 		{
 			Message.append(L"\n");
 			PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PCAP, Message.c_str(), 0, nullptr, 0);
@@ -467,14 +465,12 @@ bool CaptureModule(
 			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
 		}
 
-		pcap_freecode(&BPF_Code);
-		pcap_close(DeviceHandle);
 		return false;
 	}
 
 //Start capture with other devices.
 	std::unique_lock<std::mutex> CaptureMutex(CaptureLock);
-	PcapRunningList.push_back(CaptureDevice);
+	PcapRunningList.push_back(*DeviceTable.DeviceName);
 	CaptureMutex.unlock();
 	if (IsCaptureList && DriveInterface->next != nullptr)
 	{
@@ -485,25 +481,21 @@ bool CaptureModule(
 //Initialization(Part 2)
 	CAPTURE_HANDLER_PARAM ParamList;
 	memset(&ParamList, 0, sizeof(ParamList));
-	ParamList.DeviceType = DeviceType;
+	ParamList.DeviceType = DeviceTable.DeviceType;
 	ParamList.Buffer = Buffer.get();
 	ParamList.BufferSize = Parameter.LargeBufferSize;
 
 //Start monitor.
 	for (;;)
 	{
-		ssize_t Result = pcap_loop(DeviceHandle, PCAP_LOOP_INFINITY, CaptureHandler, reinterpret_cast<unsigned char *>(&ParamList));
+		ssize_t Result = pcap_loop(DeviceTable.DeviceHandle, PCAP_LOOP_INFINITY, CaptureHandler, reinterpret_cast<unsigned char *>(&ParamList));
 		if (Result < 0)
 		{
-		//Shutdown this capture handle.
-			pcap_freecode(&BPF_Code);
-			pcap_close(DeviceHandle);
-
 		//Delete this capture from device list.
 			CaptureMutex.lock();
 			for (auto CaptureIter = PcapRunningList.begin();CaptureIter != PcapRunningList.end();)
 			{
-				if (*CaptureIter == CaptureDevice)
+				if (*CaptureIter == *DeviceTable.DeviceName)
 					CaptureIter = PcapRunningList.erase(CaptureIter);
 				else 
 					++CaptureIter;
@@ -517,8 +509,6 @@ bool CaptureModule(
 	}
 
 //Monitor terminated
-	pcap_freecode(&BPF_Code);
-	pcap_close(DeviceHandle);
 	PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Capture module Monitor terminated", 0, nullptr, 0);
 	return true;
 }
@@ -592,7 +582,7 @@ void CaptureHandler(
 		}
 	}
 
-//LAN, WLAN and IEEE 802.1X, some Mobile Communications Standard/MCS drives which disguise as a LAN
+//LAN, WLAN and IEEE 802.1X, some Mobile Communications Standard/MCS devices which disguise as a LAN
 	if (((ntohs(Protocol) == OSI_L2_IPV6 || ntohs(Protocol) == PPP_IPV6) && Length > sizeof(ipv6_hdr)) || //IPv6
 		((ntohs(Protocol) == OSI_L2_IPV4 || ntohs(Protocol) == PPP_IPV4) && Length > sizeof(ipv4_hdr))) //IPv4
 			CaptureNetworkLayer(ntohs(Protocol), ParamList->Buffer, Length, ParamList->BufferSize);
@@ -876,13 +866,10 @@ bool CaptureCheck_ICMP(
 	const uint8_t * const Buffer, 
 	const size_t Length)
 {
-	if (
-	//ICMPv6
-		(Protocol == AF_INET6 && 
+	if ((Protocol == AF_INET6 && //ICMPv6
 		(reinterpret_cast<const icmpv6_hdr *>(Buffer))->Type == ICMPV6_TYPE_REPLY && (reinterpret_cast<const icmpv6_hdr *>(Buffer))->Code == ICMPV6_CODE_REPLY && //ICMPv6 echo reply
 		(reinterpret_cast<const icmpv6_hdr *>(Buffer))->ID == Parameter.ICMP_ID) || //Validate ICMPv6 ID.
-	//ICMP
-		(Protocol == AF_INET && 
+		(Protocol == AF_INET && //ICMP
 		(reinterpret_cast<const icmp_hdr *>(Buffer))->Type == ICMP_TYPE_ECHO && (reinterpret_cast<const icmpv6_hdr *>(Buffer))->Code == ICMP_CODE_ECHO && //ICMP echo reply
 		(reinterpret_cast<const icmp_hdr *>(Buffer))->ID == Parameter.ICMP_ID && //Validate ICMP ID.
 		Parameter.ICMP_PaddingData != nullptr && Length == sizeof(icmp_hdr) + Parameter.ICMP_PaddingLength && 
@@ -901,8 +888,8 @@ bool CaptureCheck_TCP(
 		(ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_CWR) > 0 || 
 	//ECE bit is set.
 		(ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_ECE) > 0 || 
-	//SYN and ACK bits are set, PSH bit is not set and header options are not empty.
-		((ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_IHL) >> 12U > TCP_STANDARD_IHL && 
+	//SYN and ACK bits are set, PSH bit is not set, header options are not empty but it must not only MSS option.
+		((ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_IHL) >> 12U > TCP_STANDARD_IHL + sizeof(uint8_t) && 
 		(ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_SYN_ACK) || 
 	//Standard IHL
 		((ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_IHL) >> 12U == TCP_STANDARD_IHL && 
@@ -912,7 +899,7 @@ bool CaptureCheck_TCP(
 		(ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_PSH_ACK || 
 	//FIN and ACK bits are set and header options are empty.
 		(ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_FIN_ACK || 
-	//RST bit is set, PSH and ACK bits are not set, Window size is zero and header options are empty.
+	//RST bit is set, PSH and ACK bits are not set, Window Size is zero and header options are empty.
 		((ntohs((reinterpret_cast<const tcp_hdr *>(Buffer))->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_RST && 
 		(reinterpret_cast<const tcp_hdr *>(Buffer))->Acknowledge == 0 && (reinterpret_cast<const tcp_hdr *>(Buffer))->Windows == 0))))
 			return true;
@@ -931,6 +918,7 @@ bool MatchPortToSend(
 //Initialization
 	SOCKET_DATA SocketData_Input;
 	memset(&SocketData_Input, 0, sizeof(SocketData_Input));
+	SocketData_Input.Socket = INVALID_SOCKET;
 	uint16_t SystemProtocol = 0;
 	size_t ReceiveIndex = 0;
 
@@ -961,6 +949,7 @@ bool MatchPortToSend(
 
 				//Clear item in global list.
 					memset(&PortTableIter.SocketData_Input, 0, sizeof(PortTableIter.SocketData_Input));
+					PortTableIter.SocketData_Input.Socket = INVALID_SOCKET;
 					goto ClearOutputPacketListData;
 				}
 			}
@@ -991,6 +980,7 @@ StopLoop:
 
 				//Clear item in global list.
 					memset(&PortTableIter.SocketData_Input, 0, sizeof(PortTableIter.SocketData_Input));
+					PortTableIter.SocketData_Input.Socket = INVALID_SOCKET;
 					goto ClearOutputPacketListData;
 				}
 				else {
@@ -1028,7 +1018,7 @@ ClearOutputPacketListData:
 
 	OutputPacketListMutex.unlock();
 
-//Drop resopnses which not in OutputPacketList.
+//Drop resopnses which are not in OutputPacketList.
 	if (SocketData_Input.AddrLen == 0 || SocketData_Input.SockAddr.ss_family == 0 || SystemProtocol == 0 || 
 		!SocketSetting(SocketData_Input.Socket, SOCKET_SETTING_TYPE::INVALID_CHECK, false, nullptr))
 			return false;

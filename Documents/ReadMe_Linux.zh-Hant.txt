@@ -5,7 +5,7 @@ Pcap_DNSProxy 專案的 Sourceforge 頁面：
 https://sourceforge.net/projects/pcap-dnsproxy
 
 
-* 更多程式以及配置的詳細情況，參見 ReadMe(...).txt
+* 更多程式以及配置的詳細情況，參見 ReadMe(..).txt
 
 
 -------------------------------------------------------------------------------
@@ -40,8 +40,8 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 腳本所進行的操作：
       * CMake 將編譯並在 Release 目錄生成 Pcap_DNSProxy 程式
       * 從 ExampleConfig 目錄和 Scripts 目錄複寫所需的腳本和預設設定檔到 Release 目錄，並設置基本讀寫可執行許可權
-  * 使用 ./CMake_Build.sh 腳本時可提供的參數：
     * 添加參數 --enable-static 即 ./CMake_Build.sh --enable-static 可啟用靜態編譯
+  * 使用 ./CMake_Build.sh 腳本時可提供的參數：
     * 執行時使用 ./CMake_Build.sh --disable-libpcap 可剝離對 LibPcap 的依賴，不建議使用
       * 剝離後編譯時將不需要 LibPcap 庫的支援
       * 剝離後程式將完全失去支援 LibPcap 的功能，且運行時將不會產生任何錯誤提示，慎用！
@@ -116,7 +116,9 @@ https://sourceforge.net/projects/pcap-dnsproxy
       * force-reload/restart - 重启服务
       * status - 服务状态，如果 PID 为空则服务未启动
 
-4.配置系統 DNS 伺服器設置
+4.請按照下文 正常工作查看方法 一節，先對程式是否在正常工作進行測試再修改網路設定！
+
+5.配置系統 DNS 伺服器設置
   * 可參見 https://developers.google.com/speed/public-dns/docs/using 中 Changing your DNS servers settings 中 Linux 一節
   * 圖形介面以 GNOME 3 為例：
     * 打開所有程式清單，並 -> 設置 - 硬體分類 - 網路
@@ -187,26 +189,26 @@ https://sourceforge.net/projects/pcap-dnsproxy
 正常工作查看方法：
 
 1.打開終端
-2.輸入 dig www.google.com 並回車
+2.輸入 dig @127.0.0.1 www.google.com 或者 dig @::1 www.google.com 並回車
 3.運行結果應類似：
 
    >dig www.google.com
    ; (1 server found)
    ;; global options: +cmd
    ;; Got answer:
-   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ...
-   ;; flags: ...; QUERY: ..., ANSWER: ..., AUTHORITY: ..., ADDITIONAL: ...
+   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ..
+   ;; flags: ..; QUERY: .., ANSWER: .., AUTHORITY: .., ADDITIONAL: ..
 
    ;; QUESTION SECTION:
    ;www.google.com.            IN    A
 
    ;; ANSWER SECTION:
-   ...
+   ..
 
-   ;; Query time: ... msec
-   ;; SERVER: ::1#53(::1)（IPv6，IPv4 下为 127.0.0.1）
-   ;; WHEN: ...
-   ;; MSG SIZE  rcvd: ...
+   ;; Query time: .. msec
+   ;; SERVER: ::1#53(::1)（視所在網路環境而定，本地監聽協定為 IPv4 時為 127.0.0.1）
+   ;; WHEN: ..
+   ;; MSG SIZE  rcvd: ..
 
 4.如非以上結果，請移步 Linux 版 FAQ 文檔中 運行結果分析 一節
 

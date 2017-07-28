@@ -1,9 +1,12 @@
 :: Pcap_DNSProxy white list update batch
 :: Pcap_DNSProxy, a local DNS server based on WinPcap and LibPcap
+:: 
 :: Author: dgeibi, Chengr28
+:: 
 
 
 @echo off
+
 
 :: Write header and download latest data.
 ..\Support\curl -O https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/accelerated-domains.china.conf
@@ -28,7 +31,7 @@ if /i "%Input%"=="N" goto Continue_Apple
 goto Continue_Google
 
 
-:: Database of Google
+:: Download domain data of Google in Mainland China part.
 :Google
 echo.
 ..\Support\curl -O https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/google.china.conf
@@ -45,7 +48,7 @@ if /i "%Input%"=="N" goto Exit
 goto Continue_Apple
 
 
-:: Database of Apple
+:: Download domain data of Apple in Mainland China part.
 :Apple
 echo.
 ..\Support\curl -O https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/apple.china.conf

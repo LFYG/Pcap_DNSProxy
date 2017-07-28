@@ -144,9 +144,10 @@ bool ReadHostsData(
 		LabelTypeTemp = LABEL_HOSTS_TYPE::WHITE_EXTENDED;
 	else if (InsensitiveString.compare(0, strlen("BAN"), ("BAN")) == 0 || InsensitiveString.compare(0, strlen("BANNED"), ("BANNED")) == 0)
 		LabelTypeTemp = LABEL_HOSTS_TYPE::BANNED_EXTENDED;
-	if (LabelTypeTemp > LABEL_HOSTS_TYPE::NONE)
+	if (LabelTypeTemp != LABEL_HOSTS_TYPE::NONE)
 	{
-		if (LabelType == LABEL_HOSTS_TYPE::LOCAL && (!Parameter.IsLocalHosts || 
+		if (LabelType == LABEL_HOSTS_TYPE::LOCAL && 
+			(!Parameter.IsLocalHosts || //Do not read [Local Hosts] block when Local Hosts is disabled.
 			(Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family == 0 && Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family == 0)))
 		{
 			return true;
@@ -164,7 +165,8 @@ bool ReadHostsData(
 //[Local Hosts] block
 	else if (LabelType == LABEL_HOSTS_TYPE::LOCAL)
 	{
-		if (!Parameter.IsLocalHosts || Parameter.IsLocalMain || 
+		if (!Parameter.IsLocalHosts || //Do not read [Local Hosts] block when Local Hosts is disabled.
+			(!Parameter.IsLocalForce && Parameter.IsLocalRouting) || //Do not read local hosts items in [Local Hosts] block when Local Routing is enabled and Local Force Request is disabled.
 			(Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family == 0 && Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family == 0))
 				return true;
 		else 
@@ -352,7 +354,7 @@ bool ReadLocalHostsData(
 		else if (HostsListData.front().empty()) //Dnsmasq unqualified names only
 		{
 			HostsTableTemp.IsStringMatching = true;
-			
+
 		//Default target server
 			if (HostsListData.back().empty())
 			{
@@ -375,7 +377,7 @@ bool ReadLocalHostsData(
 					PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 					return false;
 				}
-			
+
 			//Response initialization
 				ADDRESS_UNION_DATA AddressUnionDataTemp;
 				memset(&AddressUnionDataTemp, 0, sizeof(AddressUnionDataTemp));
@@ -466,6 +468,8 @@ bool ReadLocalHostsData(
 			//Make string reversed.
 				MakeStringReversed(HostsListData.front());
 				HostsTableTemp.PatternOrDomainString = HostsListData.front();
+				if (HostsTableTemp.PatternOrDomainString.back() != ASCII_PERIOD)
+					HostsTableTemp.PatternOrDomainString.append(".");
 				HostsTableTemp.IsStringMatching = true;
 			}
 
@@ -488,7 +492,7 @@ bool ReadLocalHostsData(
 						PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 						return false;
 					}
-			
+
 				//Response initialization
 					ADDRESS_UNION_DATA AddressUnionDataTemp;
 					memset(&AddressUnionDataTemp, 0, sizeof(AddressUnionDataTemp));
@@ -672,7 +676,7 @@ bool ReadAddressHostsData(
 				PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 				return false;
 			}
-			
+
 		//Reset parameters.
 			memset(&AddressTargetPrefix.first, 0, sizeof(AddressTargetPrefix.first));
 
@@ -800,7 +804,7 @@ bool ReadAddressHostsData(
 				}
 
 			//Check address range.
-				if (AddressesComparing(AF_INET6, &reinterpret_cast<sockaddr_in6 *>(&AddressRangeTableTemp.Begin)->sin6_addr, &reinterpret_cast<sockaddr_in6 *>(&AddressRangeTableTemp.End)->sin6_addr) > ADDRESS_COMPARE_TYPE::EQUAL)
+				if (AddressesComparing(AF_INET6, &reinterpret_cast<sockaddr_in6 *>(&AddressRangeTableTemp.Begin)->sin6_addr, &reinterpret_cast<sockaddr_in6 *>(&AddressRangeTableTemp.End)->sin6_addr) == ADDRESS_COMPARE_TYPE::GREATER)
 				{
 					PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::HOSTS, L"IPv6 address range error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 					return false;
@@ -856,7 +860,7 @@ bool ReadAddressHostsData(
 				}
 
 			//Check address range.
-				if (AddressesComparing(AF_INET, &reinterpret_cast<sockaddr_in *>(&AddressRangeTableTemp.Begin)->sin_addr, &reinterpret_cast<sockaddr_in *>(&AddressRangeTableTemp.End)->sin_addr) > ADDRESS_COMPARE_TYPE::EQUAL)
+				if (AddressesComparing(AF_INET, &reinterpret_cast<sockaddr_in *>(&AddressRangeTableTemp.Begin)->sin_addr, &reinterpret_cast<sockaddr_in *>(&AddressRangeTableTemp.End)->sin_addr) == ADDRESS_COMPARE_TYPE::GREATER)
 				{
 					PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::HOSTS, L"IPv4 address range error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 					return false;
@@ -1162,6 +1166,7 @@ bool ReadMainHostsData(
 	//Make string reversed and mark it to list.
 		MakeStringReversed(HostsListData.front());
 		HostsTableTemp.PatternOrDomainString.append(HostsListData.front());
+		HostsTableTemp.PatternOrDomainString.append(".");
 		HostsTableTemp.IsStringMatching = true;
 	}
 //Mark patterns.
@@ -1183,7 +1188,7 @@ bool ReadMainHostsData(
 		else {
 			HostsTableTemp.PatternOrDomainString.append(Data, Separated, Data.length() - Separated);
 		}
-		
+
 	//Mark patterns.
 		try {
 			std::regex PatternRegexTemp(HostsTableTemp.PatternOrDomainString);

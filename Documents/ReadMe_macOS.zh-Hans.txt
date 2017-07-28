@@ -5,7 +5,7 @@ Pcap_DNSProxy 项目的 Sourceforge 页面：
 https://sourceforge.net/projects/pcap-dnsproxy
 
 
-* 更多程序以及配置的详细情况，参见 ReadMe(...).txt
+* 更多程序以及配置的详细情况，参见 ReadMe(..).txt
 
   
 -------------------------------------------------------------------------------
@@ -28,7 +28,8 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 设置程序、脚本以及 plist 配置文件的基本读写执行权限
     * 装载并启动守护进程服务
     * 以后每次开机在登录前守护进程服务都将自动启动
-5.打开 "系统偏好设置" 窗口
+5.请按照下文 正常工作查看方法 一节，先对程序是否在正常工作进行测试再修改网络配置！
+6.打开 "系统偏好设置" 窗口
   * 进入 "网络" 部分
   * 选中使用的网络适配器，点击 "高级" 按钮
   * 切换到 "DNS" 选项卡，并点击 "DNS服务器" 下的 "+" 号
@@ -43,7 +44,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
 安装方法（编译二进制可执行文件）：
 
 1.准备程序编译环境
-  * Homebrew 可访问 http://brew.sh 获取
+  * Homebrew 可访问 https://brew.sh 获取
   * CMake 可访问 https://cmake.org 或通过 Homebrew 获取
   * LibPcap 可访问 http://www.tcpdump.org/#latest-release 获取
     * 编译时如果剥离 LibPcap 的依赖则可跳过编译和安装下表的依赖库和工具，具体参见下文的介绍，不建议使用
@@ -82,7 +83,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
 
 有关 OpenSSL 库的特别说明：
 
-* 为系统安装新版本 OpenSSL 库后，在开启 TLS/SSL 功能进行编译时如果出现 undef: OPENSSL... 错误：
+* 为系统安装新版本 OpenSSL 库后，在开启 TLS/SSL 功能进行编译时如果出现 undef: OPENSSL.. 错误：
   * 原因是 macOS 自带的 OpenSSL 系列版本非常老旧(0.9.8)不支持新版本特性，链接器在链接时使用了系统自带库导致错误
   * 此时先查看编译过程的记录，将 Found OpenSSL 指示的 CMake 找到的 OpenSSL 库文件目录记下，并确认所使用的版本
     * 此时可编辑 Pcap_DNSProxy 目录下的 CMakeLists.txt 文件：
@@ -130,25 +131,25 @@ https://sourceforge.net/projects/pcap-dnsproxy
 正常工作查看方法：
 
 1.打开终端
-2.输入 dig www.google.com 并回车
+2.输入 dig @127.0.0.1 www.google.com 或者 dig @::1 www.google.com 并回车
 3.运行结果应类似：
 
    >dig www.google.com
    ; (1 server found)
    ;; global options: +cmd
    ;; Got answer:
-   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ...
-   ;; flags: ...; QUERY: ..., ANSWER: ..., AUTHORITY: ..., ADDITIONAL: ...
+   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ..
+   ;; flags: ..; QUERY: .., ANSWER: .., AUTHORITY: .., ADDITIONAL: ..
 
    ;; QUESTION SECTION:
    ;www.google.com.            IN    A
 
    ;; ANSWER SECTION:
-   ...
+   ..
 
-   ;; Query time: ... msec
-   ;; SERVER: ::1#53(::1)（IPv6，IPv4 下为 127.0.0.1）
-   ;; WHEN: ...
-   ;; MSG SIZE  rcvd: ...
+   ;; Query time: .. msec
+   ;; SERVER: ::1#53(::1)（视所在网络环境而定，本地监听协议为 IPv4 时为 127.0.0.1）
+   ;; WHEN: ..
+   ;; MSG SIZE  rcvd: ..
 
 4.如非以上结果，请移步 macOS 版 FAQ 文档中 运行结果分析 一节

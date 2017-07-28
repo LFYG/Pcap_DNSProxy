@@ -1,4 +1,34 @@
-﻿Pcap_DNSProxy 0.4.8.5-0.4.9.0 更新日誌(2017-06-03)：
+﻿Pcap_DNSProxy 0.4.9.1-0.4.9.2 更新日誌(2017-07-16)：
+
+* 添加 Domain Test 探測模組對 TCP 協定的支援
+  * 添加 Domain Test Protocol 參數
+* LibSodium 庫更新到 1.0.13 (Windows/macOS)
+* 調整境內伺服器請求過程的整體策略 [cjjdaq]
+  * 移除 Local Main 參數
+* 修正對 TCP 報文的探測過濾演算法
+* 修正多重實例運行的問題
+  * 添加 Process Unique 參數
+* 修復 Local Hosts 白名單識別演算法的問題 [cjjdaq/muink]
+* 修復 Transaction ID 在取特殊值的情況時無法進行解析的問題 [LisonFan]
+* 修復在部分情況下指定多個 Listen Address 時可能造成的錯誤報錯問題
+* 修復 NSCI 系統網路感應指示器 IPv6 位址被錯誤過濾的問題 (Windows) [hnsylzg]
+* Release Hash: 
+  * SHA-3(256): 
+    * Windows/Pcap_DNSProxy.exe: 483E56CE767FCE35FA01958841EA02FAA6BFF41C47F653D4F0D65D83F8A8AF05
+    * Windows/Pcap_DNSProxy_x86.exe: 019E825BA60B70C3394F85BE94946C06D24A80A63962D822FBEB03E849C72563
+    * Windows/Pcap_DNSProxy_XP.exe: 452EB870C3B5175FAC833ACB9AD08BEC42E4DB4A516246517331B9C7C9BBE496
+    * macOS/Pcap_DNSProxy: 13443C100F80BC7F7291A639B7F7A613CA146DAE33530D28855D5C010FEB27C0
+  * SHA-2(256): 
+    * Windows/Pcap_DNSProxy.exe: B30ECC09980058C0EA5603D3070F00E15CE39594C53CC4AB39C8BFDAA4AFBE21
+    * Windows/Pcap_DNSProxy_x86.exe: 1583F14088379F392C2F9DEBCE5A2E32A369F508EA158E082BF6510372D670CF
+    * Windows/Pcap_DNSProxy_XP.exe: 19E0CA45BDB935E6A1F3BFE659B07DC0AE4C4E971B1856EB4B813862F26AB9AD
+    * macOS/Pcap_DNSProxy: 136A7D274FB8C0097EFB5E02F0B04EB753BCABF810BE2B093030FACDD3416B40
+
+
+-------------------------------------------------------------------------------
+
+
+Pcap_DNSProxy 0.4.8.5-0.4.9.0 更新日誌(2017-06-03)：
 
 * 添加對根據請求來源 IP 位址有別的 DNS 緩存/每個首碼位址擁有單獨 DNS 緩存佇列的支援 [LisonFan]
   * 添加 Cache Single IPv4 Address Prefix 參數

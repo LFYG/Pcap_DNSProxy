@@ -5,7 +5,7 @@ Pcap_DNSProxy 项目的 Sourceforge 页面：
 https://sourceforge.net/projects/pcap-dnsproxy
 
 
-* 更多程序以及配置的详细情况，参见 ReadMe(...).txt
+* 更多程序以及配置的详细情况，参见 ReadMe(..).txt
 
 
 -------------------------------------------------------------------------------
@@ -84,7 +84,9 @@ https://sourceforge.net/projects/pcap-dnsproxy
       * force-reload/restart - 重启服务
       * status - 服务状态，如果 PID 为空则服务未启动
 
-4.配置系统 DNS 服务器设置
+4.请按照下文 正常工作查看方法 一节，先对程序是否在正常工作进行测试再修改网络配置！
+
+5.配置系统 DNS 服务器设置
   * 可参见 https://developers.google.com/speed/public-dns/docs/using 中 Changing your DNS servers settings 中 Linux 一节
   * 图形界面以 GNOME 3 为例：
     * 打开所有程序列表，并 -> 设置 - 硬件分类 - 网络
@@ -155,26 +157,26 @@ https://sourceforge.net/projects/pcap-dnsproxy
 正常工作查看方法：
 
 1.打开终端
-2.输入 dig www.google.com 并回车
+2.输入 dig @127.0.0.1 www.google.com 或者 dig @::1 www.google.com 并回车
 3.运行结果应类似：
 
    >dig www.google.com
    ; (1 server found)
    ;; global options: +cmd
    ;; Got answer:
-   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ...
-   ;; flags: ...; QUERY: ..., ANSWER: ..., AUTHORITY: ..., ADDITIONAL: ...
+   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ..
+   ;; flags: ..; QUERY: .., ANSWER: .., AUTHORITY: .., ADDITIONAL: ..
 
    ;; QUESTION SECTION:
    ;www.google.com.            IN    A
 
    ;; ANSWER SECTION:
-   ...
+   ..
 
-   ;; Query time: ... msec
-   ;; SERVER: ::1#53(::1)（IPv6，IPv4 下为 127.0.0.1）
-   ;; WHEN: ...
-   ;; MSG SIZE  rcvd: ...
+   ;; Query time: .. msec
+   ;; SERVER: ::1#53(::1)（视所在网络环境而定，本地监听协议为 IPv4 时为 127.0.0.1）
+   ;; WHEN: ..
+   ;; MSG SIZE  rcvd: ..
 
 4.如非以上结果，请移步 Linux 版 FAQ 文档中 运行结果分析 一节
 
